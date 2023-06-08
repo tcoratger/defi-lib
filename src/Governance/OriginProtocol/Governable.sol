@@ -11,13 +11,6 @@ abstract contract Governable {
   // keccak256("OUSD.pending.governor");
   bytes32 private constant pendingGovernorPosition = 0x44c4d30b2eaad5130ad70c3ba6972730566f3e6359ab83e800d905c61b1c51db;
 
-  // keccak256("OUSD.reentry.status");
-  bytes32 private constant reentryStatusPosition = 0x53bf423e48ed90e97d02ab0ebab13b2a235a6bfbe9c321847d5c175333ac4535;
-
-  // See OpenZeppelin ReentrancyGuard implementation
-  uint256 constant _NOT_ENTERED = 1;
-  uint256 constant _ENTERED = 2;
-
   event PendingGovernorshipTransfer(address indexed previousGovernor, address indexed newGovernor);
 
   event GovernorshipTransferred(address indexed previousGovernor, address indexed newGovernor);
@@ -72,6 +65,7 @@ abstract contract Governable {
     return msg.sender == _governor();
   }
 
+  // Internal function to set final governance
   function _setGovernor(address newGovernor) internal {
     bytes32 position = governorPosition;
     assembly {
@@ -79,37 +73,7 @@ abstract contract Governable {
     }
   }
 
-  /**
-   * @dev Prevents a contract from calling itself, directly or indirectly.
-   * Calling a `nonReentrant` function from another `nonReentrant`
-   * function is not supported. It is possible to prevent this from happening
-   * by making the `nonReentrant` function external, and make it call a
-   * `private` function that does the actual work.
-   */
-  modifier nonReentrant() {
-    bytes32 position = reentryStatusPosition;
-    uint256 _reentry_status;
-    assembly {
-      _reentry_status := sload(position)
-    }
-
-    // On the first call to nonReentrant, _notEntered will be true
-    require(_reentry_status != _ENTERED, "Reentrant call");
-
-    // Any calls to nonReentrant after this point will fail
-    assembly {
-      sstore(position, _ENTERED)
-    }
-
-    _;
-
-    // By storing the original value once again, a refund is triggered (see
-    // https://eips.ethereum.org/EIPS/eip-2200)
-    assembly {
-      sstore(position, _NOT_ENTERED)
-    }
-  }
-
+  // Internal function to set pending governance
   function _setPendingGovernor(address newGovernor) internal {
     bytes32 position = pendingGovernorPosition;
     assembly {
@@ -117,11 +81,9 @@ abstract contract Governable {
     }
   }
 
-  /**
-   * @dev Transfers Governance of the contract to a new account (`newGovernor`).
-   * Can only be called by the current Governor. Must be claimed for this to complete
-   * @param _newGovernor Address of the new Governor
-   */
+  // Governor can transfer pending governance
+  // before new governor accepts the situation
+  // Missed address 0 verification
   function transferGovernance(address _newGovernor) external onlyGovernor {
     _setPendingGovernor(_newGovernor);
     emit PendingGovernorshipTransfer(_governor(), _newGovernor);
